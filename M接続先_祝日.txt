@@ -1,0 +1,6 @@
+let
+    ソース = Csv.Document(Web.Contents("https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv"),[Delimiter=",", Columns=2, Encoding=932, QuoteStyle=QuoteStyle.None]),
+    昇格されたヘッダー数 = Table.PromoteHeaders(ソース, [PromoteAllScalars=true]),
+    変更された型 = Table.TransformColumnTypes(昇格されたヘッダー数,{{"国民の祝日・休日月日", type date}, {"国民の祝日・休日名称", type text}})
+in
+    変更された型

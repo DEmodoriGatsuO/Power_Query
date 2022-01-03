@@ -1,0 +1,21 @@
+let
+    ソース = List.Dates(#date(2021, 1, 1), 365*2, #duration(1, 0, 0, 0)),
+    テーブルに変換済み = Table.FromList(ソース, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+    変更された型 = Table.TransformColumnTypes(テーブルに変換済み,{{"Column1", type date}}),
+    #"名前が変更された列 " = Table.RenameColumns(変更された型,{{"Column1", "日付"}}),
+    挿入された年 = Table.AddColumn(#"名前が変更された列 ", "年", each Date.Year([日付]), Int64.Type),
+    挿入された月 = Table.AddColumn(挿入された年, "月", each Date.Month([日付]), Int64.Type),
+    挿入された四半期 = Table.AddColumn(挿入された月, "四半期", each Date.QuarterOfYear([日付]), Int64.Type),
+    挿入された年の通算週 = Table.AddColumn(挿入された四半期, "年の通算週", each Date.WeekOfYear([日付]), Int64.Type),
+    挿入された日 = Table.AddColumn(挿入された年の通算週, "日", each Date.Day([日付]), Int64.Type),
+    挿入された曜日名 = Table.AddColumn(挿入された日, "曜日名", each Date.DayOfWeekName([日付]), type text),
+    区切り記号の前に挿入されたテキスト = Table.AddColumn(挿入された曜日名, "区切り記号の前のテキスト", each Text.BeforeDelimiter([曜日名], "曜"), type text),
+    #"名前が変更された列 1" = Table.RenameColumns(区切り記号の前に挿入されたテキスト,{{"区切り記号の前のテキスト", "曜日"}}),
+    マージされたクエリ数 = Table.NestedJoin(#"名前が変更された列 1", {"日付"}, 接続先_祝日, {"国民の祝日・休日月日"}, "接続先_祝日", JoinKind.LeftOuter),
+    #"展開された 接続先_祝日" = Table.ExpandTableColumn(マージされたクエリ数, "接続先_祝日", {"国民の祝日・休日名称"}, {"国民の祝日・休日名称"}),
+    並べ替えられた行 = Table.Sort(#"展開された 接続先_祝日",{{"日付", Order.Ascending}}),
+    追加された条件列 = Table.AddColumn(並べ替えられた行, "祝日", each if [#"国民の祝日・休日名称"] <> null then "祝日" else null),
+    追加された条件列1 = Table.AddColumn(追加された条件列, "区分", each if [曜日] = "土" then "休日" else if [曜日] = "日" then "休日" else if [祝日] <> null then "休日" else null),
+    並べ替えられた列 = Table.ReorderColumns(追加された条件列1,{"日付", "年", "月", "四半期", "年の通算週", "日", "曜日名", "曜日", "区分", "祝日", "国民の祝日・休日名称"})
+in
+    並べ替えられた列
